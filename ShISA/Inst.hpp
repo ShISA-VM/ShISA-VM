@@ -9,18 +9,22 @@
 namespace shisa {
 
 enum class OpCode {
-  ADD = 0x01,
-  SUB = 0x02,
-  MUL = 0x03,
-  DIV = 0x04,
-  AND = 0x05,
-  OR  = 0x06,
-  CMP = 0x07,
-  NOT = 0x08,
-  JMP = 0x09,
-  JTR = 0x0a,
-  LD  = 0x0b,
-  ST  = 0x0c,
+  ADD  = 0x00,
+  SUB  = 0x01,
+  MUL  = 0x02,
+  DIV  = 0x03,
+  AND  = 0x04,
+  OR   = 0x05,
+  CMP  = 0x06,
+  NOT  = 0x07,
+  JMP  = 0x08,
+  JTR  = 0x09,
+  LD   = 0x0a,
+  ST   = 0x0b,
+  PUSH = 0x0c,
+  POP  = 0x0d,
+  CALL = 0x0e,
+  RET  = 0x0f
 };
 
 constexpr std::size_t NREGS = 16;
@@ -70,10 +74,11 @@ public:
     return std::make_tuple(op, dst, srcR, srcL);
   }
 
-  constexpr static std::array opCodes = {OpCode::ADD, OpCode::SUB, OpCode::MUL,
-                                         OpCode::DIV, OpCode::AND, OpCode::OR,
-                                         OpCode::CMP, OpCode::NOT, OpCode::LD,
-                                         OpCode::ST,  OpCode::JMP, OpCode::JTR};
+  constexpr static std::array opCodes = {
+      OpCode::ADD,  OpCode::SUB, OpCode::MUL,  OpCode::DIV,
+      OpCode::AND,  OpCode::OR,  OpCode::CMP,  OpCode::NOT,
+      OpCode::JMP,  OpCode::JTR, OpCode::LD,   OpCode::ST,
+      OpCode::PUSH, OpCode::POP, OpCode::CALL, OpCode::RET};
 };
 
 using Inst = InstBase<uint16_t>;
