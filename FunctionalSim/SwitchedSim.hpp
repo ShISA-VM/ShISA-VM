@@ -1,6 +1,8 @@
 #include "FunctionalSim.hpp"
 
-#include <ShISAModule.hpp>
+#include <exceptions.hpp>
+#include <ISAModule.hpp>
+#include <Inst.hpp>
 
 #include <cstdint>
 
