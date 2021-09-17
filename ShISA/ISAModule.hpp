@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ShISAInst.hpp"
+#include "Inst.hpp"
 
 #include <cstdint>
 #include <vector>
