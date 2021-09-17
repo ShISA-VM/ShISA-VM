@@ -16,20 +16,7 @@ template <typename addr_t = uint16_t, typename memCell_t = uint8_t,
 class SwitchedSim final
     : public SimBase<addr_t, memCell_t, reg_t, nRegs, MemModel> {
   using SimBase = SimBase<addr_t, memCell_t, reg_t, nRegs, MemModel>;
-
-  using SimBase::fetchNext;
-  using SimBase::processAdd;
-  using SimBase::processAnd;
-  using SimBase::processCmp;
-  using SimBase::processDiv;
-  using SimBase::processJmp;
-  using SimBase::processJmpTrue;
-  using SimBase::processLoad;
-  using SimBase::processMul;
-  using SimBase::processNot;
-  using SimBase::processOr;
-  using SimBase::processStore;
-  using SimBase::processSub;
+  USING_SIM_BASE(SimBase);
 
 public:
   SwitchedSim(const shisa::ISAModule &m) : SimBase{m} {}
@@ -73,6 +60,18 @@ public:
       break;
     case shisa::OpCode::ST:
       processStore(dst, srcL, srcR);
+      break;
+    case shisa::OpCode::PUSH:
+      processPush(dst, srcL, srcR);
+      break;
+    case shisa::OpCode::CALL:
+      processCall(dst, srcL, srcR);
+      break;
+    case shisa::OpCode::POP:
+      processPop(dst, srcL, srcR);
+      break;
+    case shisa::OpCode::RET:
+      processRet(dst, srcL, srcR);
       break;
     default:
       throw shisa::InvalidInst{inst};

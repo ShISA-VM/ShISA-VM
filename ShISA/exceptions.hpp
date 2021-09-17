@@ -75,5 +75,26 @@ public:
   }
 };
 
+
+
+class ProgramEnd : public Exception {
+public:
+  ProgramEnd() : Exception{"ProgramEnd"} {}
+};
+
+
+
+class StackOverflow : public Exception {
+public:
+  StackOverflow() : Exception{"StackOverflow"} {}
+};
+
+
+
+class StackUnderflow : public Exception {
+public:
+  StackUnderflow() : Exception{"StackUnderflow"} {}
+};
+
 } // namespace shisa
 

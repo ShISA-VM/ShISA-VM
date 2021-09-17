@@ -14,7 +14,8 @@ namespace fsim {
 
 template <typename reg_t, size_t nRegs>
 class RegisterFile {
-  std::array<reg_t, nRegs> regs = {0, 1};
+  using RegArr = std::array<reg_t, nRegs>;
+  RegArr regs  = {0, 1};
 
 public:
   RegisterFile();
@@ -26,6 +27,16 @@ public:
   }
 
   auto readReg(int r) -> reg_t { return regs[r].getValue(); }
+
+  auto begin() -> typename RegArr::iterator { return regs.begin() + 2; }
+
+  auto end() -> typename RegArr::iterator { return regs.end(); }
+
+  auto begin() const -> typename RegArr::const_iterator {
+    return regs.begin() + 2;
+  }
+
+  auto end() const -> typename RegArr::const_iterator { return regs.end(); }
 };
 
 
@@ -85,6 +96,8 @@ public:
     binaryLoaded = true;
   }
 
+  auto getProgramEnd() const -> addr_t { return programEnd; }
+
   auto get(addr_t addr) -> cell_t { return mem[addr]; }
   void set(addr_t addr, cell_t data) { mem[addr] = data; }
 };
@@ -114,6 +127,8 @@ public:
 
   void loadBin(shisa::ISAModule *m) { storage->loadBin(m); }
 
+  auto getProgramEnd() const -> addr_t { return storage->getProgrammEnd; }
+
   auto read(addr_t addr) -> cell_t { return storage->get(addr); }
   void write(addr_t addr, cell_t data) { storage->set(addr, data); }
 };
@@ -123,12 +138,13 @@ public:
 template <typename addr_t, typename cell_t, typename reg_t, size_t nRegs,
           template <typename Addr, typename Cell> class MemStorage>
 class Cpu {
-  using RF    = RegisterFile<reg_t, nRegs>;
-  using RAM_t = RAM<addr_t, cell_t, MemStorage>;
+  using RF  = RegisterFile<reg_t, nRegs>;
+  using RAM = RAM<addr_t, cell_t, MemStorage>;
 
   RF *   regFile;
-  RAM_t *ram;
+  RAM *  ram;
   addr_t PC = 0;
+  addr_t SP = 0;
 
   constexpr static bool instEndAligned =
       (sizeof(shisa::ISAModule::RawInst) % sizeof(cell_t)) == 0;
@@ -136,15 +152,42 @@ class Cpu {
       sizeof(shisa::ISAModule::RawInst) / sizeof(cell_t) +
       (instEndAligned ? 0 : 1);
 
-  void PCIncrement() { PC += cellsPerInst; }
+  constexpr static bool   regEndAligned = (sizeof(reg_t) % sizeof(cell_t)) == 0;
+  constexpr static size_t cellsPerReg =
+      sizeof(reg_t) / sizeof(cell_t) + (instEndAligned ? 0 : 1);
+
+  void PCIncrement() {
+    PC += cellsPerInst;
+    if (PC >= ram->getProgramEnd()) {
+      throw shisa::ProgramEnd();
+    }
+  }
+
+  void SPDecrement() {
+    SP -= cellsPerReg;
+
+    if (SP < ram->getProgramEnd()) {
+      throw shisa::StackUnderflow{};
+    }
+  }
+
+  void SPIncrement() {
+    SP += cellsPerReg;
+    if (SP > (ram->getProgramEnd() + RAM::stackOffset)) {
+      throw shisa::StackOverflow{};
+    }
+  }
 
 public:
   Cpu() {
     regFile = new RF;
-    ram     = new RAM_t;
+    ram     = new RAM;
   }
 
-  void loadBin(shisa::ISAModule *m) { ram->loadBin(m); }
+  void loadBin(shisa::ISAModule *m) {
+    ram->loadBin(m);
+    SP = ram->getProgramEnd();
+  }
 
   auto fetchNext() -> shisa::Inst::RawInst {
     shisa::Inst::RawInst inst = 0;
@@ -161,6 +204,50 @@ public:
 
   auto readFromRAM(addr_t addr) -> cell_t { return ram->read(addr); }
   void writeToRAM(addr_t addr, cell_t data) { ram->write(addr, data); }
+
+  auto readRegFromRAM(addr_t addr) -> reg_t {
+    reg_t res = 0;
+    for (int i = 0; i < cellsPerReg; i++) {
+      res |= (ram->read(addr + i)) << (cellsPerReg - i);
+    }
+    return res;
+  }
+
+  void writeRegToRAM(addr_t addr, reg_t data) {
+    for (int i = 0; i < cellsPerReg; i++) {
+      cell_t cellData =
+          (data >> (cellsPerReg - i)) && std::numeric_limits<cell_t>::max;
+      ram->write(addr + i, cellData);
+    }
+  }
+
+  auto loadFromStack() -> reg_t {
+    reg_t data = readRegFromRAM(SP);
+    SPDecrement();
+    return data;
+  }
+
+  void storeOnStack(reg_t data) {
+    writeRegToRAM(SP, data);
+    SPIncrement();
+  }
+
+  void storePCOnStack() {
+    writeRegToRAM(SP, PC + cellsPerInst);
+    SPIncrement();
+  }
+
+  void LoadRegsFromStack() {
+    for (auto &reg : *regFile) {
+      reg = loadFromStack();
+    }
+  }
+
+  void storeRegsOnStack() {
+    for (const auto reg : *regFile) {
+      storeOnStack(reg);
+    }
+  }
 };
 
 
@@ -250,7 +337,47 @@ public:
     reg_t data = state->readReg(srcRReg);
     state->writeToRAM(addr, data);
   }
+
+  void processPush(int /*dstReg*/, int srcLReg, int /*srcRReg*/) {
+    state->storeOnStack(state->readReg(srcLReg));
+  }
+
+  void processPop(int /*dstReg*/, int srcLReg, int /*srcRReg*/) {
+    state->storePCOnStack();
+    state->storeRegsOnStack();
+    reg_t jmpTo = state->readReg(srcLReg);
+    state->setPC(jmpTo);
+  }
+
+  void processCall(int dstReg, int /*srcLReg*/, int /*srcRReg*/) {
+    state->writeReg(dstReg, state->loadFromStack());
+  }
+
+  void processRet(int /*dstReg*/, int srcLReg, int /*srcRReg*/) {
+    state->loadRegsFromStack();
+    reg_t jmpTo = state->loadFromStack();
+    state->storeOnStack(state->readReg(srcLReg));
+  }
 };
+
+#define USING_SIM_BASE(sim_base_alias)                                         \
+  using sim_base_alias::fetchNext;                                             \
+  using sim_base_alias::processAdd;                                            \
+  using sim_base_alias::processAnd;                                            \
+  using sim_base_alias::processCmp;                                            \
+  using sim_base_alias::processDiv;                                            \
+  using sim_base_alias::processJmp;                                            \
+  using sim_base_alias::processJmpTrue;                                        \
+  using sim_base_alias::processLoad;                                           \
+  using sim_base_alias::processMul;                                            \
+  using sim_base_alias::processNot;                                            \
+  using sim_base_alias::processOr;                                             \
+  using sim_base_alias::processStore;                                          \
+  using sim_base_alias::processSub;                                            \
+  using sim_base_alias::processPush;                                           \
+  using sim_base_alias::processPop;                                            \
+  using sim_base_alias::processCall;                                           \
+  using sim_base_alias::processRet
 
 } // namespace fsim
 
