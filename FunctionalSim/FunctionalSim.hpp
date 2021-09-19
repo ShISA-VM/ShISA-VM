@@ -184,6 +184,11 @@ public:
     ram     = new RAM;
   }
 
+  ~Cpu() {
+    delete regFile;
+    delete ram;
+  }
+
   void loadBin(shisa::ISAModule *m) {
     ram->loadBin(m);
     SP = ram->getProgramEnd();
@@ -268,6 +273,11 @@ public:
     ISAModule = new shisa::ISAModule(m);
     state     = new cpu_t();
     state->loadBin(ISAModule);
+  }
+
+  ~SimBase() {
+    delete ISAModule;
+    delete state;
   }
 
   virtual void execute() = 0;
