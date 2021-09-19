@@ -84,8 +84,6 @@ private:
   addr_t programEnd   = 0;
 
 public:
-  MemModel() = default;
-
   void loadBin(shisa::ISAModule *m) {
     addr_t currAddr = 0;
     for (const auto inst : m->getRawInsts()) {
