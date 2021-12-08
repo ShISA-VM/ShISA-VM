@@ -74,6 +74,7 @@ void testReadWrite() {
 
   RegisterFile RF;
 
+<<<<<<< HEAD
 #ifdef FAST_TEST
   constexpr Reg step = 0xff;
 #else
@@ -84,6 +85,16 @@ void testReadWrite() {
     for (Reg data = 0; data < std::numeric_limits<Reg>::max(); data += step) {
       RF.write(r, data);
       const Reg readData = RF.read(r);
+=======
+  for (size_t r = shisa::FIRST_WRITABLE_REG; r < shisa::NREGS; r++) {
+    for (Reg data = 0; data < std::numeric_limits<Reg>::max(); data++) {
+      RF.write(r, data);
+      const Reg readData = RF.read(r);
+
+#ifndef NDEBUG
+      RF.dump(std::clog);
+#endif
+>>>>>>> c6e6e59 (Massive refactoring)
       const Reg dataExpected = data;
       SHISA_CHECK_TEST(dataExpected == readData,
                        std::string{test_name} +
