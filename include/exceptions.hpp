@@ -1,11 +1,23 @@
 #pragma once
 
-#include "Inst.hpp"
+#include "ShISA/Inst.hpp"
 
 #include <array>
 #include <exception>
 #include <string>
 #include <string_view>
+
+
+
+#define SHISA_THROW(msg)                                                       \
+  throw shisa::Exception { (msg) }
+#define SHISA_THROW_TEST(msg)                                                  \
+  throw shisa::test::Exception { (msg), __FILE__, __LINE__ }
+
+#define SHISA_CHECK(expr, msg)                                                 \
+  static_cast<bool>(expr) ? void(0) : SHISA_THROW(msg)
+#define SHISA_CHECK_TEST(expr, msg)                                            \
+  static_cast<bool>(expr) ? void(0) : SHISA_THROW_TEST(msg)
 
 
 
@@ -79,22 +91,47 @@ public:
 
 class ProgramEnd : public Exception {
 public:
-  ProgramEnd() : Exception{"ProgramEnd"} {}
+  ProgramEnd() : Exception{"program end"} {}
 };
 
 
 
 class StackOverflow : public Exception {
 public:
-  StackOverflow() : Exception{"StackOverflow"} {}
+  StackOverflow() : Exception{"stack overflow"} {}
 };
 
 
 
 class StackUnderflow : public Exception {
 public:
-  StackUnderflow() : Exception{"StackUnderflow"} {}
+  StackUnderflow() : Exception{"stack underflow"} {}
 };
 
 } // namespace shisa
 
+
+
+namespace shisa::test {
+
+class Exception : public shisa::Exception {
+public:
+  explicit Exception() : shisa::Exception{"shisa::test::Exception"} {}
+
+  explicit Exception(std::string_view test_name)
+      : shisa::Exception{test_name} {}
+
+  explicit Exception(std::string_view test_name, std::string_view filename,
+                     unsigned line)
+      : shisa::Exception{""} {
+    appendMsg("'");
+    appendMsg(test_name);
+    appendMsg("'");
+    appendMsg(" at ");
+    appendMsg(filename);
+    appendMsg(":");
+    appendMsg(std::to_string(line));
+  }
+};
+
+} // namespace shisa::test

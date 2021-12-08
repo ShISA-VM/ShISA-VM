@@ -9,15 +9,14 @@
 namespace shisa {
 
 enum class OpCode {
-  ADD  = 0x00,
-  SUB  = 0x01,
-  MUL  = 0x02,
-  DIV  = 0x03,
-  AND  = 0x04,
-  OR   = 0x05,
-  CMP  = 0x06,
-  NOT  = 0x07,
-  JMP  = 0x08,
+  ADD  = 0x01,
+  SUB  = 0x02,
+  MUL  = 0x03,
+  DIV  = 0x04,
+  AND  = 0x05,
+  OR   = 0x06,
+  CMP  = 0x07,
+  NOT  = 0x08,
   JTR  = 0x09,
   LD   = 0x0a,
   ST   = 0x0b,
@@ -27,7 +26,10 @@ enum class OpCode {
   RET  = 0x0f
 };
 
-constexpr std::size_t NREGS = 16;
+constexpr std::size_t NREGS              = 16;
+constexpr std::size_t FIRST_WRITABLE_REG = 2;
+
+constexpr std::size_t STACK_OFFSET = 0x1000;
 
 template <typename Inst>
 class InstBase {
@@ -36,9 +38,9 @@ class InstBase {
 public:
   InstBase(Inst i) : inst{i} {}
 
-  operator Inst() const { return inst; }
-
   using RawInst = Inst;
+
+  operator RawInst() const { return inst; }
 
   auto getOpCode() const;
   auto decode() const;
@@ -60,6 +62,8 @@ public:
 
   InstBase(RawInst i) : inst{i} {}
 
+  operator RawInst() const { return inst; }
+
   [[nodiscard]] inline auto getOpCode() const -> OpCode {
     return static_cast<OpCode>((inst >> opCodePos) & mask);
   }
@@ -75,12 +79,14 @@ public:
   }
 
   constexpr static std::array opCodes = {
-      OpCode::ADD,  OpCode::SUB, OpCode::MUL,  OpCode::DIV,
-      OpCode::AND,  OpCode::OR,  OpCode::CMP,  OpCode::NOT,
-      OpCode::JMP,  OpCode::JTR, OpCode::LD,   OpCode::ST,
-      OpCode::PUSH, OpCode::POP, OpCode::CALL, OpCode::RET};
+      OpCode::ADD, OpCode::SUB,  OpCode::MUL, OpCode::DIV,  OpCode::AND,
+      OpCode::OR,  OpCode::CMP,  OpCode::NOT, OpCode::JTR,  OpCode::LD,
+      OpCode::ST,  OpCode::PUSH, OpCode::POP, OpCode::CALL, OpCode::RET};
 };
 
+using Reg = uint16_t;
+using Addr = uint16_t;
+using Cell = uint8_t;
 using Inst = InstBase<uint16_t>;
 
 } // namespace shisa

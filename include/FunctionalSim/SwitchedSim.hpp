@@ -1,25 +1,28 @@
-#include "FunctionalSim.hpp"
+#pragma once
 
+#include <FunctionalSim/FunctionalSim.hpp>
+#include <ShISA/ISAModule.hpp>
+#include <ShISA/Inst.hpp>
 #include <exceptions.hpp>
-#include <ISAModule.hpp>
-#include <Inst.hpp>
 
 #include <cstdint>
 
 
 
-namespace fsim {
+namespace shisa::fsim {
 
-template <typename addr_t = uint16_t, typename memCell_t = uint8_t,
-          typename reg_t = uint16_t, size_t nRegs = shisa::NREGS,
-          template <typename Addr, typename MemCell> class MemModel = LazyMem>
+template <typename reg_t = uint16_t, typename addr_t = uint16_t, typename memCell_t = uint8_t,
+          size_t nRegs = NREGS>
 class SwitchedSim final
-    : public SimBase<addr_t, memCell_t, reg_t, nRegs, MemModel> {
-  using SimBase = SimBase<addr_t, memCell_t, reg_t, nRegs, MemModel>;
+    : public SimBase<addr_t, memCell_t, reg_t, nRegs> {
+public:
+  using SimBase = SimBase<addr_t, memCell_t, reg_t, nRegs>;
+
+private:
   USING_SIM_BASE(SimBase);
 
 public:
-  SwitchedSim(const shisa::ISAModule &m) : SimBase{m} {}
+  SwitchedSim(const Binary &b) : SimBase{b} {}
 
   void execute() override {
     const shisa::Inst inst     = fetchNext();
@@ -49,9 +52,6 @@ public:
     case shisa::OpCode::NOT:
       processNot(dst, srcL, srcR);
       break;
-    case shisa::OpCode::JMP:
-      processJmp(dst, srcL, srcR);
-      break;
     case shisa::OpCode::JTR:
       processJmpTrue(dst, srcL, srcR);
       break;
@@ -80,5 +80,4 @@ public:
   }
 };
 
-} // namespace fsim
-
+} // namespace shisa::fsim
