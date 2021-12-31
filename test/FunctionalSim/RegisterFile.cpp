@@ -90,8 +90,14 @@ void testReadWrite() {
 
   RegisterFile RF;
 
+#ifndef FULL_TEST
+  constexpr Reg step = 0xff;
+#else
+  constexpr Reg step = 1;
+#endif
+
   for (size_t r = shisa::FIRST_WRITABLE_REG; r < shisa::NREGS; r++) {
-    for (Reg data = 0; data < std::numeric_limits<Reg>::max(); data++) {
+    for (Reg data = 0; data < std::numeric_limits<Reg>::max(); data += step) {
       RF.write(r, data);
       const Reg readData = RF.read(r);
 
