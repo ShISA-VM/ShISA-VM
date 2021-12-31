@@ -1,6 +1,6 @@
 #pragma once
 
-#include <FunctionalSim/FunctionalSim.hpp>
+#include <FunctionalSim/Sim.hpp>
 #include <ShISA/ISAModule.hpp>
 #include <ShISA/Inst.hpp>
 #include <exceptions.hpp>

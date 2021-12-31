@@ -1,4 +1,4 @@
-#include <FunctionalSim/FunctionalSim.hpp>
+#include <FunctionalSim/RAMController.hpp>
 #include <ShISA/Inst.hpp>
 #include <exceptions.hpp>
 
