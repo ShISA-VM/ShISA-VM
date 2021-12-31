@@ -62,7 +62,7 @@ void test_r1() {
 #ifndef NDEBUG
     RF.dump(std::clog);
 #endif
-    constexpr Reg r1_expected = 0;
+    constexpr Reg r1_expected = 1;
 
     SHISA_CHECK_TEST(r1_expected == r1_read,
                      std::string{test_name} + ": r1 == " +
@@ -77,7 +77,7 @@ void test_r1() {
 #ifndef NDEBUG
     RF.dump(std::clog);
 #endif
-    constexpr Reg r1_expected = 0;
+    constexpr Reg r1_expected = 1;
 
     SHISA_CHECK_TEST(r1_expected == r1_read,
                      std::string{test_name} + ": r1 == " +
