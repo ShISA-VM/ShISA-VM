@@ -69,6 +69,8 @@ if [ -z "${using_build_cache}" ]; then
 fi
 
 bash -x -c "cmake --build ${build_task}" || exit $?
+
+mkdir -p $install_dir || exit $?
 bash -x -c "DESTDIR=${install_dir} cmake ${install_task}" || exit $?
 
 exit 0
