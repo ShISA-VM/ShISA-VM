@@ -1,7 +1,7 @@
 #pragma once
 
-#include "RegisterFile.hpp"
 #include "RAMController.hpp"
+#include "RegisterFile.hpp"
 
 #include <ShISA/Binary.hpp>
 #include <ShISA/ISAModule.hpp>
@@ -12,6 +12,7 @@
 #include <iomanip>
 #include <limits>
 #include <ostream>
+#include <ranges>
 
 
 
@@ -26,7 +27,7 @@ public:
   using Cell = cell_t;
 
   using RegisterFile  = RegisterFileBase<Reg, nRegs>;
-  using RAMController = RAMControllerBase<Addr, cell_t>;
+  using RAMController = RAMControllerBase<Addr, Cell>;
 
   constexpr static size_t NREGS = nRegs;
 
@@ -40,11 +41,13 @@ public:
       sizeof(Reg) / sizeof(Cell) + (instEndAligned ? 0 : 1);
 
 private:
-  RegisterFile  regFile;
-  RAMController RAMControl;
+  RegisterFile  regFile{};
+  RAMController RAMControl{};
 
   Addr PC = 0;
   Addr SP = 0;
+
+  bool reachEnd = true;
 
 public:
   [[nodiscard]] auto getPC() const -> Addr { return PC; }
@@ -61,39 +64,96 @@ public:
     RAMControl.dump(os);
   }
 
+  auto reg_begin() -> decltype(regFile.begin()) { return regFile.begin(); }
+  auto reg_end() -> decltype(regFile.end()) { return regFile.end(); }
+
+  auto reg_begin() const -> decltype(regFile.begin()) {
+    return regFile.begin();
+  }
+  auto reg_end() const -> decltype(regFile.end()) { return regFile.end(); }
+
+  auto regs_range() { return std::views::all(regFile); }
+
+  auto regs_range() const { return std::views::all(regFile); }
+
+  auto ram_begin() -> decltype(RAMControl.begin()) {
+    return RAMControl.begin();
+  }
+  auto ram_end() -> decltype(RAMControl.end()) { return RAMControl.end(); }
+
+  auto ram_begin() const -> decltype(RAMControl.begin()) {
+    return RAMControl.begin();
+  }
+  auto ram_end() const -> decltype(RAMControl.end()) {
+    return RAMControl.end();
+  }
+
+  auto ram_range() { return std::views::all(RAMControl); }
+
+  auto ram_range() const { return std::views::all(RAMControl); }
+
   void loadBin(const Binary b) {
     RAMControl.loadBin(b);
-    SP = RAMControl.getBinEnd();
+    PC       = RAMControl.getProgramStart();
+    SP       = RAMControl.getBinEnd();
+    reachEnd = static_cast<bool>(PC >= RAMControl.getProgramEnd());
   }
 
   void PCIncrement() {
     PC += cellsPerInst;
-    if (PC >= RAMControl.getProgramEnd()) {
-      throw ProgramEnd();
+    if (PC < RAMControl.getProgramEnd()) {
+      reachEnd = false;
+    } else if (PC == RAMControl.getProgramEnd()) {
+      reachEnd = true;
+    } else {
+      PC -= cellsPerInst;
+      throw ProgramEnd{};
     }
   }
 
-  void SPDecrement() {
-    SP -= cellsPerReg;
-
-    if (SP < RAMControl.getProgramEnd()) {
-      throw StackUnderflow{};
-    }
-  }
-
-  void SPIncrement() {
-    SP += cellsPerReg;
-    if (SP > (RAMControl.getProgramEnd() + STACK_OFFSET)) {
+  void SPRegIncrementBy(Addr nInc) {
+    SP += nInc;
+    if (SP > (RAMControl.getBinEnd() + STACK_OFFSET)) {
+      SP -= nInc;
       throw StackOverflow{};
     }
   }
 
-  auto fetchNext() -> Inst::RawInst {
-    Inst::RawInst inst = 0;
-    for (int i = 0; i < cellsPerInst; i++) {
-      inst |= (RAMControl.read(PC + i)) << (cellsPerInst - i);
+  void SPDecrementBy(Addr nDec) {
+    if (SP < nDec) {
+      throw StackUnderflow{};
     }
 
+    SP -= nDec;
+
+    if (SP < RAMControl.getBinEnd()) {
+      SP += nDec;
+      throw StackUnderflow{};
+    }
+  }
+
+  void SPIncrementBy(Addr nInc) {
+    SP += nInc;
+    if (SP > (RAMControl.getBinEnd() + STACK_OFFSET)) {
+      SP -= nInc;
+      throw StackOverflow{};
+    }
+  }
+
+  void SPDecrement() { SPDecrementBy(1); }
+
+  void SPIncrement() { SPIncrementBy(1); }
+
+  void SPRegDecrement() { SPDecrementBy(cellsPerReg); }
+
+  void SPRegIncrement() { SPIncrementBy(cellsPerReg); }
+
+  auto fetchNext() -> Inst::RawInst {
+    if (reachEnd) {
+      throw ProgramEnd{};
+    }
+
+    Inst::RawInst inst = readWordFromRAM(PC);
     PCIncrement();
     return inst;
   }
@@ -104,49 +164,94 @@ public:
   auto readFromRAM(Addr addr) const -> Cell { return RAMControl.read(addr); }
   void writeToRAM(Addr addr, Cell data) { RAMControl.write(addr, data); }
 
-  auto readRegFromRAM(Addr addr) const -> Reg {
+  auto readWordFromRAM(Addr addr) const -> Reg {
     Reg res = 0;
     for (int i = 0; i < cellsPerReg; i++) {
-      res |= (RAMControl.read(addr + i)) << (cellsPerReg - i);
+      res |= static_cast<Reg>(RAMControl.read(addr + i))
+             << (cellsPerReg - i - 1) * sizeof(Cell) * CHAR_BIT;
     }
     return res;
   }
 
-  void writeRegToRAM(Addr addr, Reg data) {
+  void writeWordToRAM(Addr addr, Reg data) {
     for (int i = 0; i < cellsPerReg; i++) {
-      Cell cellData =
-          (data >> (cellsPerReg - i)) && std::numeric_limits<Cell>::max();
+      size_t shift    = cellsPerReg - i - 1;
+      Cell   cellData = data >> (shift * sizeof(Cell) * CHAR_BIT);
       RAMControl.write(addr + i, cellData);
     }
   }
 
-  void setPC(Addr addr) { PC = addr; }
-
-  auto loadFromStack() -> Reg {
-    Reg data = readRegFromRAM(SP);
-    SPDecrement();
-    return data;
+  void readRegFromRAM(Addr addr, int r) {
+    Reg data = readWordFromRAM(addr);
+    regFile.write(r, data);
   }
 
-  void storeRegOnStack(Reg data) {
-    writeRegToRAM(SP, data);
+  void writeRegToRAM(Addr addr, int r) {
+    Reg data = regFile.read(r);
+    writeWordToRAM(addr, data);
+  }
+
+  void setPC(Addr addr) {
+    PC = addr;
+    if (PC < RAMControl.getProgramEnd()) {
+      reachEnd = false;
+    } else if (PC == RAMControl.getProgramEnd()) {
+      reachEnd = true;
+    } else {
+      throw ProgramEnd{};
+    }
+
+    if (PC < RAMControl.getProgramStart()) {
+      throw BadPC{};
+    }
+  }
+
+  void setPCToEnd() {
+    PC       = RAMControl.getProgramEnd();
+    reachEnd = true;
+  }
+
+  auto loadFromStack() -> Cell {
+    SPDecrement();
+    return readFromRAM(SP);
+  }
+
+  void storeOnStack(Cell data) {
+    writeToRAM(SP, data);
     SPIncrement();
+  }
+
+  void loadRegFromStack(int r) {
+    SPRegDecrement();
+    readRegFromRAM(SP, r);
+  }
+
+  void storeRegOnStack(int r) {
+    writeRegToRAM(SP, r);
+    SPRegIncrement();
+  }
+
+  void loadPCFromStack() {
+    SPRegDecrement();
+    setPC(readWordFromRAM(SP));
+    //PCIncrement();
   }
 
   void storePCOnStack() {
-    writeRegToRAM(SP, PC + cellsPerInst);
-    SPIncrement();
+    writeWordToRAM(SP, PC);
+    SPRegIncrement();
   }
 
   void loadRegsFromStack() {
-    for (auto &reg : regFile) {
-      reg = loadFromStack();
+    for (int r :
+         std::views::iota(FIRST_WRITABLE_REG, NREGS) | std::views::reverse) {
+      loadRegFromStack(r);
     }
   }
 
   void storeRegsOnStack() {
-    for (const auto reg : regFile) {
-      storeRegOnStack(reg);
+    for (int r : std::views::iota(FIRST_WRITABLE_REG, NREGS)) {
+      storeRegOnStack(r);
     }
   }
 };
