@@ -52,6 +52,20 @@ public:
   constexpr auto end() const -> typename RegArr::const_iterator {
     return regs.end();
   }
+
+  constexpr auto rbegin() -> typename RegArr::iterator {
+    return regs.rbegin();
+  }
+
+  constexpr auto rend() -> typename RegArr::iterator { return regs.rend() + FIRST_WRITABLE_REG; }
+
+  constexpr auto rbegin() const -> typename RegArr::const_iterator {
+    return regs.rbegin();
+  }
+
+  constexpr auto rend() const -> typename RegArr::const_iterator {
+    return regs.rend() + FIRST_WRITABLE_REG;
+  }
 };
 
 using RegisterFile = RegisterFileBase<shisa::Reg, shisa::NREGS>;
