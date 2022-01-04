@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <climits>
 #include <cstdint>
 #include <tuple>
 
@@ -57,6 +58,14 @@ class InstBase<uint16_t> {
   static constexpr std::size_t dstPos    = 2;
   static constexpr std::size_t opCodePos = 3;
 
+  static constexpr std::size_t nPos    = 4;
+  static constexpr std::size_t posSize = sizeof(inst) * CHAR_BIT / nPos;
+
+  static constexpr std::size_t srcRShift   = srcRPos * posSize;
+  static constexpr std::size_t srcLShift   = srcLPos * posSize;
+  static constexpr std::size_t dstShift    = dstPos * posSize;
+  static constexpr std::size_t opCodeShift = opCodePos * posSize;
+
 public:
   using RawInst = uint16_t;
 
@@ -65,17 +74,25 @@ public:
   operator RawInst() const { return inst; }
 
   [[nodiscard]] inline auto getOpCode() const -> OpCode {
-    return static_cast<OpCode>((inst >> opCodePos) & mask);
+    return static_cast<OpCode>((inst >> opCodeShift) & mask);
   }
 
   [[nodiscard]] auto decode() const {
-    int srcR = (inst >> srcRPos) & mask;
-    int srcL = (inst >> srcLPos) & mask;
-    int dst  = (inst >> dstPos) & mask;
+    int    srcR = (inst >> srcRShift) & mask;
+    int    srcL = (inst >> srcLShift) & mask;
+    int    dst  = (inst >> dstShift) & mask;
+    OpCode op   = getOpCode();
+    return std::make_tuple(op, dst, srcL, srcR);
+  }
 
-    auto op = getOpCode();
-
-    return std::make_tuple(op, dst, srcR, srcL);
+  constexpr static auto encode(OpCode opCode, int dst, int srcL, int srcR)
+      -> RawInst {
+    RawInst inst = 0;
+    inst |= (static_cast<int>(opCode) & mask) << opCodeShift;
+    inst |= (dst & mask) << dstShift;
+    inst |= (srcL & mask) << srcLShift;
+    inst |= (srcR & mask) << srcRShift;
+    return inst;
   }
 
   constexpr static std::array opCodes = {
@@ -84,7 +101,7 @@ public:
       OpCode::ST,  OpCode::PUSH, OpCode::POP, OpCode::CALL, OpCode::RET};
 };
 
-using Reg = uint16_t;
+using Reg  = uint16_t;
 using Addr = uint16_t;
 using Cell = uint8_t;
 using Inst = InstBase<uint16_t>;
