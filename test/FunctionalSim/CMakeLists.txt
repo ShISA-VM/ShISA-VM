@@ -1,4 +1,4 @@
-set(TEST_LIST CPU RegisterFile RAM RAMController)
+set(TEST_LIST CPU RegisterFile RAM RAMController SwitchedSim)
 
 if(BUILD_TESTING)
   foreach(TEST IN LISTS TEST_LIST)
