@@ -55,7 +55,7 @@ install_args="${install_args} -S ${src_dir}"
 install_args="${install_args} -B ${build_dir}"
 install_args="${install_args} -I ${install_dir}"
 
-${tools_dir}/install.sh ${install_args}
-cd ${build_dir}
+${tools_dir}/install.sh ${install_args} || exit $?
+cd ${build_dir} || exit $?
 ctest
-cd ${current_wd}
+cd ${current_wd} || exit $?
