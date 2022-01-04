@@ -20,7 +20,7 @@ public:
 
   ISAModuleBase(const std::vector<inst_t> &i) : insts{i} {}
 
-  [[nodiscard]] auto getRawInsts() const -> const std::vector<inst_t> & {
+  [[nodiscard]] auto getInsts() const -> const std::vector<inst_t> & {
     return insts;
   }
 
