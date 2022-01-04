@@ -7,6 +7,7 @@
 #include <climits>
 #include <concepts>
 #include <iomanip>
+#include <iostream>
 #include <limits>
 #include <ostream>
 
@@ -74,13 +75,13 @@ public:
       sizeof(Binary::Data) / sizeof(Cell) + (dataEndAligned ? 0 : 1);
 
 private:
-  using RAM = RAMBase<addr_t, cell_t>;
-  RAM ram;
+  using RAM = RAMBase<Addr, Cell>;
+  RAM ram{};
 
   bool binaryLoaded = false;
 
-  addr_t binaryData = 0x0000;
-  addr_t binaryEnd  = 0x0000;
+  addr_t dataEnd   = 0x0000;
+  addr_t binaryEnd = 0x0000;
 
 public:
   using MemStorage = typename RAM::MemStorage;
@@ -99,18 +100,18 @@ public:
   void loadBin(const Binary &b) {
     addr_t currAddr = 0;
 
-    for (const auto inst : b.getISAModule().getRawInsts()) {
-      for (int i = cellsPerInst - 1; i >= 0; i--) {
-        ram.write(currAddr++, (inst >> (i * sizeof(Cell) * CHAR_BIT)) &
+    for (const auto data : b.getRawData()) {
+      for (int i = cellsPerData - 1; i >= 0; i--) {
+        ram.write(currAddr++, (data >> (i * sizeof(Cell) * CHAR_BIT)) &
                                   std::numeric_limits<cell_t>::max());
       }
     }
 
-    binaryData = currAddr;
+    dataEnd = currAddr;
 
-    for (const auto data : b.getRawData()) {
-      for (int i = cellsPerData - 1; i >= 0; i--) {
-        ram.write(currAddr++, (data >> (i * sizeof(Cell) * CHAR_BIT)) &
+    for (const auto inst : b.getISAModule()) {
+      for (int i = cellsPerInst - 1; i >= 0; i--) {
+        ram.write(currAddr++, (inst >> (i * sizeof(Cell) * CHAR_BIT)) &
                                   std::numeric_limits<cell_t>::max());
       }
     }
@@ -119,17 +120,24 @@ public:
     binaryLoaded = true;
   }
 
-  [[nodiscard]] auto getProgramEnd() const -> Addr { return binaryData; }
+  [[nodiscard]] auto getProgramStart() const -> Addr { return dataEnd; }
+
+  [[nodiscard]] auto getProgramEnd() const -> Addr { return binaryEnd; }
 
   [[nodiscard]] auto getBinEnd() const -> Addr { return binaryEnd; }
 
-  [[nodiscard]] auto getBinDataAddr() const -> Addr { return binaryData; }
+  [[nodiscard]] auto getBinDataAddr() const -> Addr { return 0x0000; }
 
   [[nodiscard]] auto isBinaryLoaded() const -> bool { return binaryLoaded; }
 
   auto read(addr_t addr) const -> cell_t { return ram.read(addr); }
 
-  void write(addr_t addr, cell_t data) { ram.write(addr, data); }
+  void write(addr_t addr, cell_t data) {
+    // binary is loaded in read-only memory
+    if (addr >= binaryEnd) {
+      ram.write(addr, data);
+    }
+  }
 };
 
 } // namespace shisa::fsim
