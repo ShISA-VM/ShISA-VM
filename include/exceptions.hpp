@@ -43,27 +43,9 @@ public:
 
 
 
-template <typename T>
-concept IsInst = std::is_base_of<Inst, T>::value;
-
-template <IsInst InstClass>
-class UnexpectedInst : public Exception {
-private:
-  static constexpr size_t n = InstClass::opCodes.size();
-
-  InstClass             inst;
-  std::array<OpCode, n> expectedOps;
-
+class BadPC : public Exception {
 public:
-  UnexpectedInst(InstClass *i, const std::array<OpCode, n> &opCodes)
-      : Exception{"UnexpectedInst"}, inst{*i}, expectedOps{opCodes} {}
-
-  [[nodiscard]] auto got() const noexcept -> InstClass { return inst; }
-
-  [[nodiscard]] auto expected() const noexcept
-      -> const std::array<OpCode, n> & {
-    return expectedOps;
-  }
+  BadPC() : Exception{"bad PC"} {}
 };
 
 
@@ -71,7 +53,7 @@ public:
 template <typename T>
 class InvalidValue : public Exception {
 public:
-  InvalidValue(const char *var_name, T var_val) : Exception{var_name} {
+  InvalidValue(std::string_view var_name, T var_val) : Exception{var_name} {
     appendMsg(" == ");
     appendMsg(std::to_string(var_val));
   }
@@ -82,7 +64,7 @@ public:
 class InvalidInst : public Exception {
 public:
   InvalidInst(Inst inst) : Exception{"Invalid instruction: "} {
-    appendMsg("with opcode");
+    appendMsg("with opcode ");
     appendMsg(std::to_string(static_cast<unsigned>(inst.getOpCode())));
   }
 };
@@ -108,11 +90,34 @@ public:
   StackUnderflow() : Exception{"stack underflow"} {}
 };
 
-} // namespace shisa
+
+
+template <typename T>
+concept IsInst = std::derived_from<T, Inst>;
+
+template <IsInst InstClass>
+class UnexpectedInst : public Exception {
+private:
+  static constexpr size_t n = InstClass::opCodes.size();
+
+  InstClass             inst;
+  std::array<OpCode, n> expectedOps;
+
+public:
+  UnexpectedInst(InstClass &i, const std::array<OpCode, n> &opCodes)
+      : Exception{"UnexpectedInst"}, inst{i}, expectedOps{opCodes} {}
+
+  [[nodiscard]] auto got() const noexcept -> InstClass { return inst; }
+
+  [[nodiscard]] auto expected() const noexcept
+      -> const std::array<OpCode, n> & {
+    return expectedOps;
+  }
+};
 
 
 
-namespace shisa::test {
+namespace test {
 
 class Exception : public shisa::Exception {
 public:
@@ -134,4 +139,6 @@ public:
   }
 };
 
-} // namespace shisa::test
+} // namespace test
+
+} // namespace shisa
