@@ -33,7 +33,7 @@ static_assert(
 
 
 
-auto getTestBin() {
+auto getTestBin() -> Binary {
   std::vector insts = {
       Inst{0x1210}, // add r2  r1  r0
       Inst{0x1310}, // add r3  r1  r0
@@ -75,10 +75,10 @@ void testRAMController() {
 
   RAMController controller;
 
-#ifndef NDEBUG
-  std::clog << "RAMController dump before loading binary:" << std::endl;
-  controller.dump(std::clog);
-#endif
+  SHISA_CHECK_TEST(0 == controller.getProgramStart(),
+                   std::string{test_name} +
+                       ": binary wasn't loaded to RAM but program end address "
+                       "is not equal to zero");
 
   SHISA_CHECK_TEST(0 == controller.getProgramEnd(),
                    std::string{test_name} +
@@ -114,29 +114,31 @@ void testRAMController() {
   Binary bin = getTestBin();
   controller.loadBin(bin);
 
-#ifndef NDEBUG
-  std::clog << "RAMController dump after loading binary:" << std::endl;
-  controller.dump(std::clog);
-#endif
+  const Addr programStart = controller.getProgramStart();
+  const Addr expectedProgramStart =
+      bin.getRawData().size() * RAMController::cellsPerData;
+  SHISA_CHECK_TEST(expectedProgramStart == programStart,
+                   std::string{test_name} + ": bad program end address: " +
+                       std::to_string(programStart) +
+                       ", expected: " + std::to_string(expectedProgramStart));
 
-  const Addr programEnd         = controller.getProgramEnd();
-  const Addr expectedProgramEnd = bin.nInsts() * RAMController::cellsPerInst;
+  const Addr programEnd = controller.getProgramEnd();
+  const Addr expectedProgramEnd =
+      bin.nInsts() * RAMController::cellsPerInst + expectedProgramStart;
   SHISA_CHECK_TEST(expectedProgramEnd == programEnd,
                    std::string{test_name} + ": bad program end address: " +
                        std::to_string(programEnd) +
                        ", expected: " + std::to_string(expectedProgramEnd));
 
   const Addr binDataAddr         = controller.getBinDataAddr();
-  const Addr expectedBinDataAddr = expectedProgramEnd;
+  const Addr expectedBinDataAddr = 0x0000;
   SHISA_CHECK_TEST(expectedBinDataAddr == binDataAddr,
                    std::string{test_name} + ": bad binary data address: " +
                        std::to_string(binDataAddr) +
                        ", expected: " + std::to_string(expectedBinDataAddr));
 
-  const Addr   binEnd   = controller.getBinEnd();
-  const size_t dataSize = sizeof(Binary::Data) / sizeof(Cell) +
-                          (sizeof(Binary::Data) % sizeof(Cell) == 0 ? 0 : 1);
-  const Addr expectedBinEnd = expectedProgramEnd + bin.nData() * dataSize;
+  const Addr binEnd         = controller.getBinEnd();
+  const Addr expectedBinEnd = expectedProgramEnd;
   SHISA_CHECK_TEST(expectedBinEnd == binEnd,
                    std::string{test_name} +
                        ": bad binary end address: " + std::to_string(binEnd) +
@@ -149,28 +151,28 @@ void testRAMController() {
   {
     Addr currAddr = 0;
     for (const auto cell : controller) {
-      if (currAddr < controller.getProgramEnd()) {
-        const size_t instIdx = currAddr / RAMController::cellsPerInst;
-        const Inst   inst    = bin.getISAModule().getRawInsts().at(instIdx);
-        const size_t shiftSize =
-            CHAR_BIT * (RAMController::cellsPerInst -
-                        currAddr % RAMController::cellsPerInst - 1);
+      if (currAddr < controller.getProgramStart()) {
+        const size_t       dataIdx = currAddr / RAMController::cellsPerData;
+        const Binary::Data data    = bin.getRawData().at(dataIdx);
+        const size_t       shiftSize =
+            CHAR_BIT * (RAMController::cellsPerData -
+                        currAddr % RAMController::cellsPerData - 1);
         const Cell expectedCellData =
-            (inst >> shiftSize) & std::numeric_limits<Cell>::max();
+            (data >> shiftSize) & std::numeric_limits<Cell>::max();
         SHISA_CHECK_TEST(cell == expectedCellData,
                          std::string{test_name} + ": bad binary data " +
                              std::to_string(static_cast<unsigned>(cell)) +
                              " at address " + std::to_string(currAddr) +
                              ", expected " + std::to_string(expectedCellData));
       } else if (currAddr < controller.getBinEnd()) {
-        const size_t dataIdx = (currAddr - controller.getProgramEnd()) /
-                               RAMController::cellsPerData;
-        const Binary::Data data = bin.getRawData().at(dataIdx);
-        const size_t       shiftSize =
-            CHAR_BIT * (RAMController::cellsPerData -
-                        currAddr % RAMController::cellsPerData - 1);
+        const size_t instIdx = (currAddr - controller.getProgramStart()) /
+                               RAMController::cellsPerInst;
+        const Inst   inst = bin.getISAModule().getInsts().at(instIdx);
+        const size_t shiftSize =
+            CHAR_BIT * (RAMController::cellsPerInst -
+                        currAddr % RAMController::cellsPerInst - 1);
         const Cell expectedCellData =
-            (data >> shiftSize) & std::numeric_limits<Cell>::max();
+            (inst >> shiftSize) & std::numeric_limits<Cell>::max();
         SHISA_CHECK_TEST(cell == expectedCellData,
                          std::string{test_name} + ": bad binary data " +
                              std::to_string(static_cast<unsigned>(cell)) +
@@ -184,10 +186,6 @@ void testRAMController() {
     }
   }
 }
-
-
-
-void testLazyBased() {}
 
 
 
