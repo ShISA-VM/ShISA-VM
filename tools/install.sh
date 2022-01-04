@@ -65,13 +65,13 @@ build_task="${build_dir}"
 install_task="-DCMAKE_INSTALL_PREFIX=/ -P ${build_dir}/cmake_install.cmake"
 
 if [ -z "${using_build_cache}" ]; then
-  bash -x -c "cmake ${cmake_generator} ${cmake_task}" || exit $?
+  sh -cx "cmake ${cmake_generator} ${cmake_task}" || exit $?
 fi
 
-bash -x -c "cmake --build ${build_task}" || exit $?
+sh -cx "cmake --build ${build_task}" || exit $?
 
 mkdir -p $install_dir || exit $?
-bash -x -c "DESTDIR=${install_dir} cmake ${install_task}" || exit $?
+sh -cx "DESTDIR=${install_dir} cmake ${install_task}" || exit $?
 
 exit 0
 
