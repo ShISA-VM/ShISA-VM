@@ -16,114 +16,123 @@
 
 namespace shisa::fsim {
 
-template <typename reg_t, typename addr_t, typename cell_t, size_t nRegs>
-requires(std::unsigned_integral<reg_t> &&std::unsigned_integral<addr_t>
-             &&std::unsigned_integral<cell_t>) class SimBase {
+template <typename reg_t, typename addr_t, typename cell_t, size_t n_regs>
+requires(std::unsigned_integral<Reg> &&std::unsigned_integral<Addr>
+             &&std::unsigned_integral<Cell>) class SimBase {
 public:
   using Reg  = reg_t;
   using Addr = addr_t;
   using Cell = cell_t;
 
-  using CPU = CpuBase<addr_t, cell_t, reg_t, nRegs>;
+  using CPU = CpuBase<Reg, Addr, Cell, n_regs>;
 
 private:
   CPU cpu;
 
 protected:
-  auto getState() -> CPU { return cpu; }
+  auto getState() -> CPU & { return cpu; }
 
 public:
   SimBase(const Binary &b) { cpu.loadBin(b); }
 
   virtual void execute() = 0;
 
-  void dump_state() const { cpu.dump(); }
+  void dumpState(std::ostream &os) const { cpu.dump(os); }
+
+  auto getState() const -> const CPU & { return cpu; }
 
   auto fetchNext() -> Inst::RawInst { return cpu.fetchNext(); }
 
   void processAdd(int dstReg, int srcLReg, int srcRReg) {
-    reg_t res = cpu.readReg(srcLReg) + cpu.readReg(srcRReg);
+    Reg res = cpu.readReg(srcLReg) + cpu.readReg(srcRReg);
     cpu.writeReg(dstReg, res);
   }
 
   void processSub(int dstReg, int srcLReg, int srcRReg) {
-    reg_t res = cpu.readReg(srcLReg) - cpu.readReg(srcRReg);
+    Reg res = cpu.readReg(srcLReg) - cpu.readReg(srcRReg);
     cpu.writeReg(dstReg, res);
   }
 
   void processMul(int dstReg, int srcLReg, int srcRReg) {
-    reg_t res = cpu.readReg(srcLReg) * cpu.readReg(srcRReg);
+    Reg res = cpu.readReg(srcLReg) * cpu.readReg(srcRReg);
     cpu.writeReg(dstReg, res);
   }
 
   void processDiv(int dstReg, int srcLReg, int srcRReg) {
-    reg_t res = cpu.readReg(srcLReg) / cpu.readReg(srcRReg);
+    Reg rReg = cpu.readReg(srcRReg);
+    if (rReg == 0) {
+      cpu.setPCToEnd();
+      //TODO: maybe need to write about exception somewhere in MMIO
+      return;
+    }
+    Reg res = cpu.readReg(srcLReg) / cpu.readReg(srcRReg);
     cpu.writeReg(dstReg, res);
   }
 
   void processAnd(int dstReg, int srcLReg, int srcRReg) {
-    reg_t res = cpu.readReg(srcLReg) & cpu.readReg(srcRReg);
+    Reg res = cpu.readReg(srcLReg) & cpu.readReg(srcRReg);
     cpu.writeReg(dstReg, res);
   }
 
   void processOr(int dstReg, int srcLReg, int srcRReg) {
-    reg_t res = cpu.readReg(srcLReg) | cpu.readReg(srcRReg);
+    Reg res = cpu.readReg(srcLReg) | cpu.readReg(srcRReg);
     cpu.writeReg(dstReg, res);
   }
 
+  //TODO: isn't it sub?
   void processCmp(int dstReg, int srcLReg, int srcRReg) {
-    reg_t res = cpu.readReg(srcLReg) - cpu.readReg(srcRReg);
+    Reg res = cpu.readReg(srcLReg) - cpu.readReg(srcRReg);
     cpu.writeReg(dstReg, res);
   }
 
   void processNot(int dstReg, int srcLReg, int /*srcRReg*/) {
-    reg_t res = ~(cpu.readReg(srcLReg));
+    Reg res = ~(cpu.readReg(srcLReg));
     cpu.writeReg(dstReg, res);
   }
 
   void processJmpTrue(int /*dstReg*/, int srcLReg, int srcRReg) {
-    reg_t cond = cpu.readReg(srcLReg);
+    Reg cond = cpu.readReg(srcLReg);
     if (cond == 0) {
-      reg_t jmpTo = cpu.readReg(srcRReg);
+      Reg jmpTo = cpu.readReg(srcRReg);
       cpu.setPC(jmpTo);
     }
   }
 
   void processLoad(int dstReg, int srcLReg, int /*srcRReg*/) {
-    reg_t addr = cpu.readReg(srcLReg);
-    cpu.writeReg(dstReg, cpu.readFromRAM(addr));
+    Reg addr = cpu.readReg(srcLReg);
+    cpu.writeReg(dstReg, cpu.readWordFromRAM(addr));
   }
 
   void processStore(int /*dstReg*/, int srcLReg, int srcRReg) {
-    reg_t addr = cpu.readReg(srcLReg);
-    reg_t data = cpu.readReg(srcRReg);
-    cpu.writeToRAM(addr, data);
+    Reg addr = cpu.readReg(srcLReg);
+    Reg data = cpu.readReg(srcRReg);
+    cpu.writeWordToRAM(addr, data);
   }
 
   void processPush(int /*dstReg*/, int srcLReg, int /*srcRReg*/) {
-    cpu.storeRegOnStack(cpu.readReg(srcLReg));
+    cpu.storeRegOnStack(srcLReg);
   }
 
-  void processPop(int /*dstReg*/, int srcLReg, int /*srcRReg*/) {
-    cpu.storePCOnStack();
-    cpu.storeRegsOnStack();
-    reg_t jmpTo = cpu.readReg(srcLReg);
-    cpu.setPC(jmpTo);
+  void processPop(int dstReg, int /*srcLReg*/, int /*srcRReg*/) {
+    cpu.loadRegFromStack(dstReg);
   }
 
   void processCall(int dstReg, int /*srcLReg*/, int /*srcRReg*/) {
-    cpu.writeReg(dstReg, cpu.loadFromStack());
+    Reg jmpTo = cpu.readReg(dstReg);
+    cpu.storePCOnStack();
+    cpu.storeRegsOnStack();
+    cpu.setPC(jmpTo);
   }
 
-  void processRet(int /*dstReg*/, int srcLReg, int /*srcRReg*/) {
+  void processRet(int /*dstReg*/, int /*srcLReg*/, int /*srcRReg*/) {
     cpu.loadRegsFromStack();
-    reg_t jmpTo = cpu.loadFromStack();
-    cpu.storeRegOnStack(cpu.readReg(srcLReg));
+    cpu.loadPCFromStack();
   }
 };
 
 #define USING_SIM_BASE(sim_base_alias)                                         \
-  using sim_base_alias::dump_state;                                            \
+  using sim_base_alias::dumpState;                                             \
+  using sim_base_alias::getState;                                              \
   using sim_base_alias::fetchNext;                                             \
   using sim_base_alias::processAdd;                                            \
   using sim_base_alias::processAnd;                                            \
