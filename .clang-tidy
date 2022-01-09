@@ -1,0 +1,14 @@
+---
+Checks: >
+  -*,
+  clang-*,
+  misc-*,
+  -misc-no-recursion,
+  modernize-*,
+  perfomance-*,
+  portability-*,
+  readability-*,
+CheckOptions:
+  - key:          readability-function-cognitive-complexity.IgnoreMacros
+    value:        'true'
+WarningsAsErrors: 'true'
