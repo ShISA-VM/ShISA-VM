@@ -3,6 +3,7 @@
 #include<string>
 #include<vector>
 #include<algorithm>
+#include<ostream>
 
 #include "Lexer.hpp"
 #include "ShISAInstructions.hpp"
@@ -17,7 +18,9 @@ namespace translator {
 
         virtual void runGrammarParser() = 0;
         virtual void resolveJumps() = 0;
-        virtual ~ParserBase() = default;
+        virtual ~ParserBase() {};
+
+
 
     protected:
         std::string err_str;
@@ -30,7 +33,31 @@ namespace translator {
     class ShISAParser : public ParserBase<ShISALexer, ShISAOp> {
 
     public:
-        ShISAParser() : ParserBase<ShISALexer, ShISAOp>() {}
+        ShISAParser(ShISALexer* lexer = nullptr) : ParserBase<ShISALexer, ShISAOp>(lexer) {}
+
+        bool Parse() {
+            lexer->runLexicalParser();
+            if(lexer->getLexicErrors() == "") {
+                runGrammarParser();
+                if(err_str == "") {
+                    return true;
+                } else {
+                    std::cout << err_str << std::endl;
+                    return false;
+                }
+            } else {
+                std::cout << lexer->getLexicErrors() << std::endl;
+                return false;
+            }
+        }
+
+        auto&& getInstructions() {
+            return operations;
+        }
+
+        void runLexicalParser() {
+            lexer->runLexicalParser();
+        }
         
         void runGrammarParser() override {
             
@@ -38,9 +65,9 @@ namespace translator {
             std::unique_ptr<ShISAOp> buf_op{nullptr};
             for(size_t pc = 0; pc < lexems.size(); ++pc) {
 
-                shisa_lexems_t curr_lexem_type = lexems.at(pc)->type;
+                ShISALexem curr_lexem_type = lexems.at(pc)->type;
 
-                if(curr_lexem_type == shisa_lexems_t::op) {
+                if(curr_lexem_type == ShISALexem::op) {
                     OpLexem* elt = dynamic_cast<OpLexem*>(lexems.at(pc).get());
                     switch(elt->op) {
                         case ShISAInstrOpCode::add:
@@ -51,12 +78,12 @@ namespace translator {
                         case ShISAInstrOpCode::or_op:
                         case ShISAInstrOpCode::cmp:
                             if(pc+3 < lexems.size()) {
-                                const std::vector<std::pair<shisa_lexems_t, shisa_lexems_t>> args{{lexems.at(pc+1).get()->type, shisa_lexems_t::reg},
-                                                                                            {lexems.at(pc+2).get()->type, shisa_lexems_t::reg},
-                                                                                            {lexems.at(pc+3).get()->type, shisa_lexems_t::reg}};
+                                const std::vector<std::pair<ShISALexem, ShISALexem>> args{{lexems.at(pc+1).get()->type, ShISALexem::reg},
+                                                                                            {lexems.at(pc+2).get()->type, ShISALexem::reg},
+                                                                                            {lexems.at(pc+3).get()->type, ShISALexem::reg}};
                                 //TODO: maybe do smth better
                                 if(checkArgs(args, pc, elt->line)) {
-                                    if((pc+4) == lexems.size() || lexems.at(pc+4)->type == shisa_lexems_t::newline) {
+                                    if((pc+4) == lexems.size() || lexems.at(pc+4)->type == ShISALexem::newline) {
                                         operations.push_back(
                                                 std::make_unique<ShISABinOp>(elt->line, elt->op, dynamic_cast<RegLexem*>(lexems.at(pc+1).get())->reg,
                                                                              dynamic_cast<RegLexem*>(lexems.at(pc+2).get())->reg, dynamic_cast<RegLexem*>(lexems.at(pc+3).get())->reg));
@@ -78,10 +105,10 @@ namespace translator {
                         case ShISAInstrOpCode::push:
                         case ShISAInstrOpCode::pop:
                             if(pc+2 < lexems.size()) {
-                                const std::vector<std::pair<shisa_lexems_t, shisa_lexems_t>> args{{lexems.at(pc+1).get()->type, shisa_lexems_t::reg},
-                                                                                                  {lexems.at(pc+2).get()->type, shisa_lexems_t::reg}};
+                                const std::vector<std::pair<ShISALexem, ShISALexem>> args{{lexems.at(pc+1).get()->type, ShISALexem::reg},
+                                                                                                  {lexems.at(pc+2).get()->type, ShISALexem::reg}};
                                 if(checkArgs(args, pc, elt->line)) {
-                                    if((pc+3) == lexems.size() || lexems.at(pc+3)->type == shisa_lexems_t::newline) {
+                                    if((pc+3) == lexems.size() || lexems.at(pc+3)->type == ShISALexem::newline) {
                                         operations.push_back(
                                                 std::make_unique<ShISAUnOp>(elt->line, elt->op, dynamic_cast<RegLexem*>(lexems.at(pc+1).get())->reg,
                                                                             dynamic_cast<RegLexem*>(lexems.at(pc+2).get())->reg));
@@ -97,13 +124,14 @@ namespace translator {
                                         + std::to_string(elt->line) + "\n";
                                 pc += 3;
                             }
+                            break;
                         case ShISAInstrOpCode::jtr:
                             //TODO: move this algorithm to function and reuse
                             if(pc+2 < lexems.size()) {
-                                const std::vector<std::pair<shisa_lexems_t, shisa_lexems_t>> args{{lexems.at(pc+1).get()->type, shisa_lexems_t::reg},
-                                                                                                  {lexems.at(pc+2).get()->type, shisa_lexems_t::mark}};
+                                const std::vector<std::pair<ShISALexem, ShISALexem>> args{{lexems.at(pc+1).get()->type, ShISALexem::reg},
+                                                                                                  {lexems.at(pc+2).get()->type, ShISALexem::mark}};
                                 if(checkArgs(args, pc, elt->line)) {
-                                    if((pc+3) == lexems.size() || lexems.at(pc+3)->type == shisa_lexems_t::newline) {
+                                    if((pc+3) == lexems.size() || lexems.at(pc+3)->type == ShISALexem::newline) {
                                         operations.push_back(
                                                 std::make_unique<ShISAJtr>(elt->line, dynamic_cast<RegLexem*>(lexems.at(pc+1).get())->reg,
                                                                             dynamic_cast<MarkLexem*>(lexems.at(pc+2).get())->mark));
@@ -119,11 +147,12 @@ namespace translator {
                                         + std::to_string(elt->line) + "\n";
                                 pc += 3;
                             }
+                            break;
                         case ShISAInstrOpCode::call:
                             if(pc+1 < lexems.size()) {
-                                const std::vector<std::pair<shisa_lexems_t, shisa_lexems_t>> args{{lexems.at(pc+1).get()->type, shisa_lexems_t::reg}};
+                                const std::vector<std::pair<ShISALexem, ShISALexem>> args{{lexems.at(pc+1).get()->type, ShISALexem::reg}};
                                 if(checkArgs(args, pc, elt->line)) {
-                                    if((pc+2) == lexems.size() || lexems.at(pc+2)->type == shisa_lexems_t::newline) {
+                                    if((pc+2) == lexems.size() || lexems.at(pc+2)->type == ShISALexem::newline) {
                                         operations.push_back(
                                                 std::make_unique<ShISAJtr>(elt->line, ShISARegOpCode::r1, dynamic_cast<MarkLexem*>(lexems.at(pc+1).get())->mark));
                                         pc += 2;
@@ -138,8 +167,9 @@ namespace translator {
                                         + std::to_string(elt->line) + "\n";
                                 pc += 2;
                             }
+                            break;
                         case ShISAInstrOpCode::ret:
-                            if((pc+1) == lexems.size() || lexems.at(pc+1)->type == shisa_lexems_t::newline) {
+                            if((pc+1) == lexems.size() || lexems.at(pc+1)->type == ShISALexem::newline) {
                                 operations.push_back(
                                         std::make_unique<ShISAOp>(elt->line, ShISAInstrOpCode::ret));
                                 pc += 1;
@@ -148,19 +178,20 @@ namespace translator {
                                         "\n";
                                 skipToNewline(pc);
                             }
+                            break;
                     }
-                } else if(curr_lexem_type == shisa_lexems_t::reg) {
+                } else if(curr_lexem_type == ShISALexem::reg) {
                     err_str += "GRAMMAR_ERROR: Unexpected register at line" + std::to_string(lexems.at(pc).get()->line) + "\n";
                     ++pc;
-                } else if(curr_lexem_type == shisa_lexems_t::newline) {
+                } else if(curr_lexem_type == ShISALexem::newline) {
                     //TODO: mb in one line
                     ++pc;
-                } else if(curr_lexem_type == shisa_lexems_t::mark) {
+                } else if(curr_lexem_type == ShISALexem::mark) {
                     if(pc+2 < lexems.size()) {
-                        if(lexems.at(pc+1).get()->type == shisa_lexems_t::colon && lexems.at(pc+2).get()->type == shisa_lexems_t::newline) {
+                        if(lexems.at(pc+1).get()->type == ShISALexem::colon && lexems.at(pc+2).get()->type == ShISALexem::newline) {
                             markResolver.addMark(dynamic_cast<MarkLexem*>(lexems.at(pc).get())->mark, lexems.at(pc).get()->line);
                             pc += 2;
-                        } else if(lexems.at(pc+1).get()->type != shisa_lexems_t::colon) {
+                        } else if(lexems.at(pc+1).get()->type != ShISALexem::colon) {
                             err_str += "GRAMMAR_ERROR: Unexpected mark at line " + std::to_string(lexems.at(pc).get()->line) + "\n";
                             ++pc;
                         }
@@ -168,7 +199,7 @@ namespace translator {
                         err_str += "GRAMMAR_ERROR: Expected newline after mark at line " + std::to_string(lexems.at(pc).get()->line) + "\n";
                         ++pc;
                     }
-                } else if(curr_lexem_type == shisa_lexems_t::colon) {
+                } else if(curr_lexem_type == ShISALexem::colon) {
                     err_str += "GRAMMAR_ERROR: Unexpected colon at line " + std::to_string(lexems.at(pc).get()->line) + "\n";
                     ++pc;
                 } else {
@@ -185,11 +216,11 @@ namespace translator {
 
     private:
 
-        int checkArgs(const std::vector<std::pair<shisa_lexems_t, shisa_lexems_t>>& args, size_t& pc, size_t line) {
+        int checkArgs(const std::vector<std::pair<ShISALexem, ShISALexem>>& args, size_t& pc, size_t line) {
             //TODO: maybe do smth better
-            if(std::all_of(args.begin(), args.end(), [](std::pair<shisa_lexems_t, shisa_lexems_t> arg) {return arg.first == arg.second;})) {
+            if(std::all_of(args.begin(), args.end(), [](std::pair<ShISALexem, ShISALexem> arg) {return arg.first == arg.second;})) {
                 return true;
-            } else if(std::any_of(args.begin(), args.end(), [](std::pair<shisa_lexems_t, shisa_lexems_t> arg) {return arg.first == shisa_lexems_t::newline;})) {
+            } else if(std::any_of(args.begin(), args.end(), [](std::pair<ShISALexem, ShISALexem> arg) {return arg.first == ShISALexem::newline;})) {
                 //TODO:  check if arguments before newline valid
                 err_str += "GRAMMAR_ERROR: Too few arguments at line " + std::to_string(line) + "\n";
                 //TODO: do smth more smart
@@ -203,12 +234,13 @@ namespace translator {
         }
 
         void skipToNewline(size_t& pc) {
-            while(lexer->getLexemVector().at(pc)->type != shisa_lexems_t::newline) {
+            while(lexer->getLexemVector().at(pc)->type != ShISALexem::newline) {
                 ++pc;
             }
         }
 
         ShISAMarkResolver markResolver;
+
 
     };
 

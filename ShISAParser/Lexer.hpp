@@ -13,7 +13,7 @@ namespace translator {
     template <typename lexem>
     class LexerBase {
     public:
-        LexerBase(const std::string& prog = "") : programm(prog), lexems(), err_str() {}
+        LexerBase(std::string_view prog = "") : programm(std::string(prog)), lexems(), err_str() {}
 
         void setProgramm(const std::string& prog) {
             programm.open(prog);
@@ -26,13 +26,8 @@ namespace translator {
         virtual void runLexicalParser() = 0;
         virtual ~LexerBase() = default;
 
-        bool isAnyErrors() {
-            if(!err_str.empty()) {
-                std::cout << err_str;
-                return false;
-            } else {
-                return true;
-            }
+        const std::string& getLexicErrors() {
+            return err_str;
         }
 
     protected:
@@ -47,6 +42,8 @@ namespace translator {
     class ShISALexer final : public LexerBase<SimpleLexem> {
 
     public:
+        ShISALexer(const std::string& prog = "") : LexerBase(prog) {}
+
         void runLexicalParser() override {
             //TODO: Do something more smart here
             if(!programm.is_open()) {
@@ -55,7 +52,7 @@ namespace translator {
             }
 
             std::string lexem_buf;
-            size_t curr_line = 0;
+            size_t curr_line = 1;
             while(true) {
                 std::ifstream::int_type letter = programm.get();
                 if (letter != ' ' && letter != '\n' && letter != ':'
@@ -84,7 +81,7 @@ namespace translator {
                     } else if(lexem_buf == "ld") {
                         lexems.push_back(std::make_unique<OpLexem>(curr_line, ShISAInstrOpCode::ld));
                     } else if(lexem_buf == "st") {
-                        lexems.push_back(std::make_unique<OpLexem>(curr_line, ShISAInstrOpCode::cmp));
+                        lexems.push_back(std::make_unique<OpLexem>(curr_line, ShISAInstrOpCode::st));
                     } else if(lexem_buf == "cmp") {
                         lexems.push_back(std::make_unique<OpLexem>(curr_line, ShISAInstrOpCode::cmp));
                     } else if(lexem_buf == "push") {
@@ -127,21 +124,24 @@ namespace translator {
                         lexems.push_back(std::make_unique<RegLexem>(curr_line, ShISARegOpCode::r14));
                     } else if(lexem_buf == "r15") {
                         lexems.push_back(std::make_unique<RegLexem>(curr_line, ShISARegOpCode::r15));
+                    } else if(lexem_buf == ":") {
+                        lexems.push_back(std::make_unique<SimpleLexem>(ShISALexem::colon, curr_line));
                     } else {
                         if (std::regex_match(lexem_buf, std::regex("^[A-Z]$"))) {
                             lexems.push_back(std::make_unique<MarkLexem>(curr_line, lexem_buf));
                         } else {
-                            err_str += "LEXER_ERROR: invalid lexem: " + lexem_buf + "\n";
+                            err_str += "LEXER_ERROR: invalid lexem: " + lexem_buf + " at line "
+                                    + std::to_string(curr_line) + "\n";
                         }
                     }
 
                     lexem_buf.clear();
 
                     if(letter == '\n') { // there will be new token
-                        lexems.push_back(std::make_unique<SimpleLexem>(shisa_lexems_t::newline, curr_line));
+                        lexems.push_back(std::make_unique<SimpleLexem>(ShISALexem::newline, curr_line));
                         ++curr_line;
                     } else if(letter == ':') {
-                        lexems.push_back(std::make_unique<SimpleLexem>(shisa_lexems_t::colon, curr_line));
+                        lexem_buf += static_cast<char>(letter);
                     }
 
                 }
