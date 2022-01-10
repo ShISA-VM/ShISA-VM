@@ -14,7 +14,7 @@ namespace translator {
     template <typename lexer_t, typename instr_t>
     class ParserBase {
     public:
-        ParserBase(lexer_t* lexer_ = nullptr): lexer(lexer_), err_str(), operations() {}
+        ParserBase(lexer_t* lexer_ = nullptr): lexer(lexer_), err_str(), operations(), operations_uint16() {}
 
         virtual void runGrammarParser() = 0;
         virtual void resolveJumps() = 0;
@@ -26,6 +26,7 @@ namespace translator {
         std::string err_str;
         lexer_t* lexer;
         std::vector<std::unique_ptr<instr_t>> operations;
+        std::vector<uint16_t> operations_uint16;
     };
 
 
@@ -53,6 +54,49 @@ namespace translator {
 
         auto&& getInstructions() {
             return operations;
+        }
+
+        auto getInstructionUint16() {
+            if(operations.empty()) {
+                std::cerr << "COMMON_ERROR: Using getInstructionUint16 method before parsing\n";
+            }
+
+            if(operations_uint16.empty()) {
+
+                std::size_t opShift   = 12;
+                std::size_t dstShift  = 8;
+                std::size_t srcLShift = 4;
+                std::size_t srcRShift = 0;
+
+                for(auto&& elt : operations) {
+                    uint16_t op_uint16;
+                    if(auto* op = dynamic_cast<ShISABinOp*>(elt.get())) {
+                        op_uint16 = static_cast<uint16_t>(op->op) << opShift;
+                        op_uint16 |= static_cast<uint16_t>(op->dstReg)     << dstShift;
+                        op_uint16 |= static_cast<uint16_t>(op->leftReg)    << srcLShift;
+                        op_uint16 |= static_cast<uint16_t>(op->rightReg)   << srcRShift;
+                    } else if (auto* op = dynamic_cast<ShISAUnOp*>(elt.get())) {
+                        op_uint16 = static_cast<uint16_t>(op->op) << opShift;
+                        op_uint16 |= static_cast<uint16_t>(op->dstReg)     << dstShift;
+                        op_uint16 |= static_cast<uint16_t>(op->leftReg)    << srcLShift;
+                    } else if(auto* op = dynamic_cast<ShISAJtrResolved*>(elt.get())) {
+                        op_uint16 = static_cast<uint16_t>(op->op) << opShift;
+                        op_uint16 |= static_cast<uint16_t>(op->reg)        << srcLShift;
+                        op_uint16 |= static_cast<uint16_t>(op->idx_to_jmp) << srcRShift;
+                    } else if(auto* op = dynamic_cast<ShISACallResolved*>(elt.get())) {
+                        op_uint16 = static_cast<uint16_t>(op->op) << opShift;
+                        op_uint16 |= static_cast<uint16_t>(op->idx_to_jmp) << srcLShift;
+                    } else if(elt->op == ShISAInstrOpCode::ret) {
+                        op_uint16 = 0xf000;
+                    } else {
+                        std::cerr << "COMMON_ERROR: Unexpected type of instruction "
+                        + std::to_string(static_cast<uint16_t>(elt->op)) + "in getInstructionUint16 method\n";
+                    }
+
+                    operations_uint16.push_back(op_uint16);
+                }
+            }
+            return operations_uint16;
         }
 
         void runLexicalParser() {
