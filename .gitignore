@@ -1,0 +1,10 @@
+build/
+install/
+
+Testing/
+
+.cache/
+
+compile_commands.json
+
+**~

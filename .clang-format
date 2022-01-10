@@ -1,0 +1,12 @@
+---
+BasedOnStyle: LLVM
+AlignConsecutiveAssignments: Consecutive
+AlignConsecutiveBitFields: Consecutive
+AlignConsecutiveDeclarations: Consecutive
+AlignConsecutiveMacros: Consecutive
+AlwaysBreakTemplateDeclarations: true
+IndentPPDirectives: BeforeHash
+IndentWrappedFunctionNames: true
+MaxEmptyLinesToKeep: 3
+SpaceAfterCStyleCast: true
+...
