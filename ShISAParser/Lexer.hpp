@@ -127,7 +127,7 @@ namespace translator {
                     } else if(lexem_buf == ":") {
                         lexems.push_back(std::make_unique<SimpleLexem>(ShISALexem::colon, curr_line));
                     } else {
-                        if (std::regex_match(lexem_buf, std::regex("^[A-Z]$"))) {
+                        if (std::regex_match(lexem_buf, std::regex("[A-Z]+"))) {
                             lexems.push_back(std::make_unique<MarkLexem>(curr_line, lexem_buf));
                         } else {
                             err_str += "LEXER_ERROR: invalid lexem: " + lexem_buf + " at line "

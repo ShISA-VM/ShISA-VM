@@ -29,12 +29,11 @@ namespace translator {
                     if(mark_ht.contains(jtr_op->mark)) {
                         elt = std::make_unique<ShISAJtrResolved>(jtr_op->line, jtr_op->reg, mark_ht.at(jtr_op->mark));
                     } else {
-                        err_str += "MARKRESOLVER_ERROR: No mark to jump at line " + std::to_string(jtr_op->line) + "\n";
+                        std::cerr << "MARKRESOLVER_ERROR: No mark to jump at line " + std::to_string(jtr_op->line) + "\n";
                     }
                 }
             }
          }
-
 
  };
 
