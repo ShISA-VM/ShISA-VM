@@ -41,8 +41,9 @@ public:
         std::pair{shisa::OpCode::DIV, 0x0000},
         std::pair{shisa::OpCode::AND, 0x0000},
         std::pair{shisa::OpCode::OR, 0x0001},
+        std::pair{shisa::OpCode::XOR, 0x0001},
         std::pair{shisa::OpCode::NOT, 0xffff},
-        std::pair{shisa::OpCode::CMP, 0xffff},
+        std::pair{shisa::OpCode::CMP, 0x0001},
     };
 
     for (const auto [testingOpCode, expectedRegValue] :
@@ -56,7 +57,7 @@ public:
         const Binary  bin{std::move(M), {}};
         Sim           sim(bin);
 
-        sim.execute();
+        sim.executeOne();
         const auto &state    = sim.getState();
         const Reg   regValue = state.readReg(r);
         SHISA_CHECK_TEST(expectedRegValue == regValue,
@@ -97,7 +98,7 @@ public:
     try {
       /* clang-format off */ #define ever ;; /* clang-format on */
       for (ever) {
-        sim.execute();
+        sim.executeOne();
       }
     } catch (const shisa::ProgramEnd &e) {
     }
@@ -153,17 +154,20 @@ public:
 
     try {
       for (ever) {
-        sim.execute();
+        sim.executeOne();
       }
     } catch (const shisa::ProgramEnd &e) {
     }
 
+    const int  firstInst = bin.getISAModule().getInsts()[0];
     const auto testCases = {
-        std::pair(0x2, 0x0002), std::pair(0x3, 0x0003), std::pair(0x4, 0xbeef),
-        std::pair(0x5, 0xdead), std::pair(0x6, 0xeeee), std::pair(0x7, 0xeeee),
-        std::pair(0x8, 0x1211), std::pair(0x9, 0x1211), std::pair(0xa, 0xdead),
-        std::pair(0xb, 0x0080), std::pair(0xc, 0x0000), std::pair(0xd, 0x0000),
-        std::pair(0xe, 0x0080), std::pair(0xf, 0x0008),
+        std::pair(0x2, 0x0002),    std::pair(0x3, 0x0003),
+        std::pair(0x4, 0xbeef),    std::pair(0x5, 0xdead),
+        std::pair(0x6, 0xeeee),    std::pair(0x7, 0xeeee),
+        std::pair(0x8, firstInst), std::pair(0x9, firstInst),
+        std::pair(0xa, 0xdead),    std::pair(0xb, 0x0080),
+        std::pair(0xc, 0x0000),    std::pair(0xd, 0x0000),
+        std::pair(0xe, 0x0080),    std::pair(0xf, 0x0008),
     };
 
     const auto &state = sim.getState();
@@ -206,7 +210,7 @@ public:
 
     try {
       for (ever) {
-        sim.execute();
+        sim.executeOne();
       }
     } catch (const shisa::ProgramEnd &e) {
     }
