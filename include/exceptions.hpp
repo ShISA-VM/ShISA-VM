@@ -65,7 +65,7 @@ class InvalidInst : public Exception {
 public:
   InvalidInst(Inst inst) : Exception{"Invalid instruction: "} {
     appendMsg("with opcode ");
-    appendMsg(std::to_string(static_cast<unsigned>(inst.getOpCode())));
+    appendMsg(std::to_string(static_cast<int>(inst.decode().opCode)));
   }
 };
 
