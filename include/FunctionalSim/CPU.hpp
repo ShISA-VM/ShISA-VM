@@ -51,7 +51,11 @@ private:
 
 public:
   [[nodiscard]] auto getPC() const -> Addr { return PC; }
+  [[nodiscard]] auto getProgramStart() const -> Addr {
+    return RAMControl.getProgramStart();
+  }
   [[nodiscard]] auto getSP() const -> Addr { return SP; }
+  [[nodiscard]] auto endReached() const -> bool { return reachEnd; }
 
   void dumpPC(std::ostream &os) const { os << "PC = " << PC << "\n"; }
   void dumpSP(std::ostream &os) const { os << "SP = " << SP << "\n"; }
@@ -92,7 +96,7 @@ public:
 
   auto ram_range() const { return std::views::all(RAMControl); }
 
-  void loadBin(const Binary b) {
+  void loadBin(const Binary &b) {
     RAMControl.loadBin(b);
     PC       = RAMControl.getProgramStart();
     SP       = RAMControl.getBinEnd();
@@ -234,7 +238,6 @@ public:
   void loadPCFromStack() {
     SPRegDecrement();
     setPC(readWordFromRAM(SP));
-    //PCIncrement();
   }
 
   void storePCOnStack() {
