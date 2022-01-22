@@ -35,13 +35,22 @@ protected:
 public:
   SimBase(const Binary &b) { cpu.loadBin(b); }
 
-  virtual void execute() = 0;
-
-  void dumpState(std::ostream &os) const { cpu.dump(os); }
+  void dump(std::ostream &os) const { cpu.dump(os); }
 
   auto getState() const -> const CPU & { return cpu; }
 
+
+  virtual void executeOne() = 0;
+
+  void executeAll() {
+    while (!cpu.endReached()) {
+      executeOne();
+    }
+  }
+
   auto fetchNext() -> Inst::RawInst { return cpu.fetchNext(); }
+
+  void PCIncrement() { cpu.PCIncrement(); }
 
   void processAdd(int dstReg, int srcLReg, int srcRReg) {
     Reg res = cpu.readReg(srcLReg) + cpu.readReg(srcRReg);
@@ -62,7 +71,7 @@ public:
     Reg rReg = cpu.readReg(srcRReg);
     if (rReg == 0) {
       cpu.setPCToEnd();
-      //TODO: maybe need to write about exception somewhere in MMIO
+      // TODO: maybe need to write about exception somewhere in MMIO
       return;
     }
     Reg res = cpu.readReg(srcLReg) / cpu.readReg(srcRReg);
@@ -79,10 +88,15 @@ public:
     cpu.writeReg(dstReg, res);
   }
 
-  //TODO: isn't it sub?
-  void processCmp(int dstReg, int srcLReg, int srcRReg) {
-    Reg res = cpu.readReg(srcLReg) - cpu.readReg(srcRReg);
+  void processXor(int dstReg, int srcLReg, int srcRReg) {
+    Reg res = cpu.readReg(srcLReg) ^ cpu.readReg(srcRReg);
     cpu.writeReg(dstReg, res);
+  }
+
+  void processCmp(int dstReg, int srcLReg, int srcRReg) {
+    bool equal = cpu.readReg(srcLReg) == cpu.readReg(srcRReg);
+    Reg  cmp   = equal ? 0x0 : 0x1;
+    cpu.writeReg(dstReg, cmp);
   }
 
   void processNot(int dstReg, int srcLReg, int /*srcRReg*/) {
@@ -131,9 +145,11 @@ public:
 };
 
 #define USING_SIM_BASE(sim_base_alias)                                         \
-  using sim_base_alias::dumpState;                                             \
+  using sim_base_alias::dump;                                                  \
   using sim_base_alias::getState;                                              \
+  using sim_base_alias::executeAll;                                            \
   using sim_base_alias::fetchNext;                                             \
+  using sim_base_alias::PCIncrement;                                           \
   using sim_base_alias::processAdd;                                            \
   using sim_base_alias::processAnd;                                            \
   using sim_base_alias::processCmp;                                            \
@@ -143,6 +159,7 @@ public:
   using sim_base_alias::processMul;                                            \
   using sim_base_alias::processNot;                                            \
   using sim_base_alias::processOr;                                             \
+  using sim_base_alias::processXor;                                            \
   using sim_base_alias::processStore;                                          \
   using sim_base_alias::processSub;                                            \
   using sim_base_alias::processPush;                                           \
