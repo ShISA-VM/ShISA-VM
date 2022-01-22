@@ -25,9 +25,10 @@ public:
 
   SwitchedSim(const Binary &b) : Sim{b} {}
 
-  void execute() override {
-    const shisa::Inst inst     = fetchNext();
-    auto [op, dst, srcL, srcR] = inst.decode();
+  void executeOne() override {
+    const shisa::Inst inst = fetchNext();
+
+    const auto [op, dst, srcL, srcR] = inst.decode();
     switch (op) {
     case shisa::OpCode::ADD:
       processAdd(dst, srcL, srcR);
@@ -46,6 +47,9 @@ public:
       break;
     case shisa::OpCode::OR:
       processOr(dst, srcL, srcR);
+      break;
+    case shisa::OpCode::XOR:
+      processXor(dst, srcL, srcR);
       break;
     case shisa::OpCode::CMP:
       processCmp(dst, srcL, srcR);
@@ -80,5 +84,10 @@ public:
     }
   }
 };
+
+template <class S>
+concept isSwitchedSim =
+    std::is_same_v<S, SwitchedSim<typename S::Reg, typename S::Addr,
+                                  typename S::Cell, shisa::NREGS>>;
 
 } // namespace shisa::fsim
