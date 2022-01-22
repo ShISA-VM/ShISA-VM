@@ -1,13 +1,14 @@
 #include "SimTester.hpp"
 
-#include <exceptions.hpp>
 #include <FunctionalSim/SwitchedSim.hpp>
+#include <exceptions.hpp>
 
-using Reg = uint16_t;
+using Reg  = uint16_t;
 using Addr = uint16_t;
 using Cell = uint8_t;
 
-using SimTester = shisa::test::SimTester<Reg, Addr, Cell, shisa::NREGS, shisa::fsim::SwitchedSim>;
+using SimTester = shisa::test::SimTester<Reg, Addr, Cell, shisa::NREGS,
+                                         shisa::fsim::SwitchedSim>;
 
 
 
