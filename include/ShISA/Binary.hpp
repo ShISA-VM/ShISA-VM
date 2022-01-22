@@ -12,8 +12,8 @@ namespace shisa {
 template <typename inst_t, typename data_t>
 class BinaryBase {
 public:
-  using Data       = data_t;
-  using Inst       = inst_t;
+  using Data = data_t;
+  using Inst = inst_t;
 
   using ISAModule  = ISAModuleBase<Inst>;
   using BinaryData = std::vector<Data>;

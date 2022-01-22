@@ -20,6 +20,8 @@ public:
 
   ISAModuleBase(const std::vector<inst_t> &i) : insts{i} {}
 
+  ISAModuleBase(std::vector<inst_t> &&i) : insts{i} {}
+
   [[nodiscard]] auto getInsts() const -> const std::vector<inst_t> & {
     return insts;
   }
@@ -30,9 +32,7 @@ public:
     return insts.begin();
   }
 
-  auto end() -> typename std::vector<inst_t>::iterator {
-    return insts.end();
-  }
+  auto end() -> typename std::vector<inst_t>::iterator { return insts.end(); }
 
   [[nodiscard]] auto begin() const ->
       typename std::vector<inst_t>::const_iterator {
