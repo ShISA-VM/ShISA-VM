@@ -21,7 +21,7 @@ void test_r0() {
   constexpr int r0 = 0;
 
   {
-    const Reg r0_read = RF.read(r0);
+    const Reg     r0_read     = RF.read(r0);
     constexpr Reg r0_expected = 0;
 
     SHISA_CHECK_TEST(r0_expected == r0_read,
@@ -32,7 +32,7 @@ void test_r0() {
   {
     constexpr Reg some_data = 69;
     RF.write(r0, some_data);
-    const Reg r0_read = RF.read(r0);
+    const Reg     r0_read     = RF.read(r0);
     constexpr Reg r0_expected = 0;
 
     SHISA_CHECK_TEST(r0_expected == r0_read,
@@ -49,7 +49,7 @@ void test_r1() {
   constexpr int r1 = 1;
 
   {
-    const Reg r1_read = RF.read(r1);
+    const Reg     r1_read     = RF.read(r1);
     constexpr Reg r1_expected = 1;
 
     SHISA_CHECK_TEST(r1_expected == r1_read,
@@ -60,7 +60,7 @@ void test_r1() {
   {
     constexpr Reg some_data = 69;
     RF.write(r1, some_data);
-    const Reg r1_read = RF.read(r1);
+    const Reg     r1_read     = RF.read(r1);
     constexpr Reg r1_expected = 1;
 
     SHISA_CHECK_TEST(r1_expected == r1_read,
@@ -83,7 +83,7 @@ void testReadWrite() {
   for (size_t r = shisa::FIRST_WRITABLE_REG; r < shisa::NREGS; r++) {
     for (Reg data = 0; data < std::numeric_limits<Reg>::max(); data += step) {
       RF.write(r, data);
-      const Reg readData = RF.read(r);
+      const Reg readData     = RF.read(r);
       const Reg dataExpected = data;
       SHISA_CHECK_TEST(dataExpected == readData,
                        std::string{test_name} +
